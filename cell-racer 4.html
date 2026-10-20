@@ -1,0 +1,286 @@
+<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>CELL RACER</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<style>
+:root{--ac:#ffd23a;--pn:rgba(10,14,30,.85)}
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#123;color:#fff;font:15px system-ui,sans-serif}
+canvas{position:fixed;inset:0;width:100%;height:100%}
+.p{background:var(--pn);border:1px solid var(--ac);border-radius:12px;padding:8px 12px}
+#hud{position:fixed;top:max(8px,env(safe-area-inset-top));left:8px;font-size:13px;line-height:1.5}
+#warn{position:fixed;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);text-align:center;max-width:42vw;font-size:13px;border-color:#5f5}
+#warn.al{border-color:#f55;background:rgba(80,0,0,.85);animation:b 1s infinite}
+@keyframes b{50%{opacity:.6}}
+#hb{position:fixed;top:max(8px,env(safe-area-inset-top));right:8px;display:flex;gap:6px}
+#toast{position:fixed;top:30%;left:50%;transform:translateX(-50%);max-width:70vw;text-align:center;opacity:0;transition:.4s;pointer-events:none}
+#toast.on{opacity:1}
+#dlg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,10,.6);z-index:9}
+#dl{max-width:min(680px,94vw);max-height:88vh;overflow:auto;touch-action:pan-y;padding:18px}
+table{border-collapse:collapse;font-size:12px}td,th{border:1px solid #556;padding:3px 6px;text-align:left;vertical-align:top}
+button{font:inherit;color:#fff;background:#3a2a05;border:1px solid var(--ac);border-radius:10px;padding:10px 16px;margin:4px 4px 0 0}
+button:active,.on2{background:var(--ac);color:#210}
+#jb{position:fixed;left:max(24px,env(safe-area-inset-left));bottom:28px;width:170px;height:170px;border-radius:50%;background:rgba(0,0,0,.3);border:14px solid #1b1b1f;box-shadow:0 0 0 2px var(--ac),inset 0 0 0 3px #444;z-index:5}
+#jk{position:absolute;inset:0;border-radius:50%;background:linear-gradient(#444,#444) center/100% 12px no-repeat,linear-gradient(#444,#444) 50% 100%/12px 55% no-repeat}
+#jk::before{content:'';position:absolute;left:calc(50% - 6px);top:0;width:12px;height:22px;background:#ffd23a;border-radius:3px}
+#dash{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:5;min-width:210px;padding:4px 14px}
+.sp{font-size:36px;font-weight:700;line-height:1}
+#tut{position:fixed;top:max(76px,13vh);left:50%;transform:translateX(-50%);max-width:min(560px,90vw);z-index:8;display:none}
+#bt{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:24px;display:grid;grid-template-columns:100px 100px;gap:10px;z-index:5}
+#bt button{height:80px;margin:0;font-size:16px;background:rgba(40,30,5,.85)}
+#bt .w{grid-column:span 2;height:64px}
+#hb,#toast{z-index:8}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:2;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.5))}
+#mgr{position:fixed;inset:0;display:none;z-index:6;pointer-events:none}
+#live{position:absolute;left:27vw;right:27vw;top:5vh;height:43vh;border:6px solid #1c2a3a;border-radius:6px;box-shadow:0 0 0 200vmax #070b12}
+#live::after{content:'● LIVE · TV-KAMERA';position:absolute;left:8px;top:6px;font-size:11px;color:#f55;text-shadow:0 0 4px #000}
+.mon{position:absolute;pointer-events:auto;background:#06121c;border:4px solid #1c3a52;border-radius:10px;padding:8px;font-size:12px;overflow:auto;color:#bfe;box-shadow:inset 0 0 30px rgba(40,160,255,.15)}
+.mon,.mon *{touch-action:pan-y}
+#ml{left:1vw;top:5vh;width:25vw;height:43vh}#mr{right:1vw;top:5vh;width:25vw;height:43vh}
+#md{left:1vw;right:1vw;bottom:1vh;height:46vh;background:linear-gradient(#171310,#0b0805);border-color:#3a2c1c}
+#mh{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+</style></head><body>
+<canvas id="c"></canvas><div id="hud" class="p"></div><div id="warn" class="p"></div>
+<div id="hb"><button id="bt1">Team</button><button id="bt2">Menü</button></div>
+<div id="toast" class="p"></div>
+<div id="jb"><div id="jk"></div></div>
+<div id="bt"><button data-k="gas">▲ Gas</button><button data-k="brk">▼ Bremse</button><button data-k="pit" class="w">🔧 Boxenstopp</button></div>
+<div id="vig"></div><div id="dash" class="p"></div><div id="tut" class="p"></div>
+<div id="mgr"><div id="live"></div><div class="mon" id="ml"></div><div class="mon" id="mr"></div><div class="mon" id="md"><div id="mh"><button id="mcall">📻 Boxenstopp anordnen</button><button id="mmenu">Menü</button><b id="mtime"></b></div><div id="mc"></div></div></div>
+<div id="dlg"><div class="p" id="dl"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=i=>document.getElementById(i);
+if(typeof THREE==='undefined'){document.body.innerHTML='<div class="p" style="margin:20px">Fehler: three.js konnte nicht geladen werden. Bitte Internetverbindung prüfen und neu laden.</div>';throw 0}
+// ---- Daten: Analogie Pflanzenzelle = Rennwagen + Team ----
+const TEAM=[
+['Zellwand','Karosserie mit Überrollkäfig','Gibt Form und Schutz. Grenze: Die Zellwand ist durchlässig und wächst mit der Zelle.'],
+['Zellmembran','Luft- und Sprit-Filter','Lässt nur Passendes durch. Grenze: Sie ist eine flüssige Doppelschicht mit Transportproteinen.'],
+['Zellkern','Bordcomputer (ECU)','Daten und Steuerung wie die DNA. Grenze: DNA ist ein Bauplan, der abgelesen wird, kein Computer.'],
+['Mitochondrien','Motor','Liefern nutzbare Energie (ATP). Grenze: Sie verbrennen nicht, sondern oxidieren Nährstoffe schrittweise.'],
+['Chloroplasten','Solardach','Wandeln Licht in Energie, bilden Zucker. Grenze: Nur Pflanzen und Algen haben sie.'],
+['Vakuole','Tank','Speicher; in Pflanzen auch Stabilität (Turgor). Grenze: Sie speichert Wasser, nicht nur Kraftstoff.'],
+['Endoplasmatisches Retikulum','Teilefertigung in der Box-Werkstatt','Produktion und Transport von Proteinen und Lipiden.'],
+['Golgi-Apparat','Teile-Ausgabe und Versand','Bearbeitet, verpackt, sortiert, verschickt. Grenze: Transport in Vesikeln statt Lieferwagen.'],
+['Ribosomen','Mechaniker','Bauen Proteine nach Plan. Grenze: Mechaniker denken, Ribosomen laufen nur ab.'],
+['Lysosomen','Recycling-Container','Abbau und Recycling. Grenze: In Pflanzen übernimmt das oft die Vakuole.'],
+['Cytoplasma','Innenraum und Kühlflüssigkeit','Hier liegen die Organellen, viele Reaktionen laufen ab.']];
+const EV=[
+['Motorleistung bricht ein!',.5,1,'Welches Bauteil liefert dem Auto die Antriebsenergie – und entspricht den Mitochondrien?',['Motor','Bordcomputer','Karosserie'],0,'Der Motor wandelt Kraftstoff in Antrieb um, Mitochondrien wandeln Nährstoffe in ATP um.',3],
+['Tank fast leer!',.4,1,'Was lagert Vorräte wie die Vakuole?',['Der Tank','Der Spoiler','Das Solardach'],0,'Die Vakuole speichert Wasser und Stoffe – und stabilisiert die Pflanzenzelle durch ihren Druck.',5],
+['Verschmutzter Einlass: falsche Stoffe!',.7,.7,'Welches Teil lässt nur Passendes ins Auto – wie die Zellmembran?',['Luft- und Sprit-Filter','Überrollkäfig','Reifen'],0,'Die Zellmembran ist selektiv durchlässig: Nützliches rein, Schadstoffe meist raus.',1],
+['Karosserie beschädigt!',.8,.6,'Was gibt dem Auto Form und Schutz – wie die Zellwand?',['Karosserie mit Überrollkäfig','Bordcomputer','Tank'],0,'Die Zellwand aus Cellulose gibt Pflanzenzellen Stabilität und Schutz.',0],
+['Bordcomputer meldet Fehler!',.8,.45,'Wo liegen Daten und Strategie, wie die Erbinformation im Zellkern?',['Bordcomputer (ECU)','Reifen','Auspuff'],0,'Der Zellkern enthält die DNA mit den Bauplänen und steuert so die Zelle.',2],
+['Batterie leer, Solardach liefert zu wenig!',.6,1,'Was wandelt Licht in nutzbare Energie – wie die Chloroplasten?',['Solardach','Bremse','Funkgerät'],0,'Chloroplasten nutzen Licht, Wasser und CO₂ für die Fotosynthese und bilden Zucker.',4],
+['Ersatzteil fehlt in der Box!',.8,.8,'Mechaniker bauen (Ribosomen), Werkstatt fertigt (ER), dann …?',['Teile-Ausgabe verpackt und liefert (Golgi)','Reifen wechselt allein','Tank speichert Teile'],0,'Der Golgi-Apparat bearbeitet, verpackt und versendet Stoffe, nachdem ER und Ribosomen sie hergestellt haben.',7],
+['Altteile blockieren die Box!',.9,.8,'Wer entsorgt und recycelt Altes – wie die Lysosomen?',['Recycling-Container','Frontflügel','Navigationssystem'],0,'Lysosomen bauen Stoffe und Zellbestandteile mit Enzymen ab und führen sie dem Recycling zu.',9]];
+EV.push(['Kühlflüssigkeit überhitzt!',.65,.9,'Wo liegen die Organellen und laufen viele Reaktionen ab, wie im Cytoplasma?',['Innenraum und Kühlkreislauf','Frontflügel','Funkantenne'],0,'Im Cytoplasma liegen die Organellen, und viele Stoffwechselreaktionen laufen dort ab.',10],
+['Mechaniker überlastet!',.85,.8,'Wer baut nach Plan, wie die Ribosomen?',['Mechaniker','Tank','Bremsscheibe'],0,'Ribosomen lesen die Bauanleitung ab und setzen Proteine zusammen.',8],
+['Werkstatt-Fertigung steht still!',.8,.85,'Wo werden Teile hergestellt und weitergegeben, wie im ER?',['Werkstatt-Fertigung','Reifenstapel','Tribüne'],0,'Das ER stellt Proteine und Lipide her und transportiert sie weiter.',6],
+['Falsche Streckendaten im Steuergerät!',.75,.5,'Welches Teil speichert Pläne, wie der Zellkern die DNA?',['Bordcomputer (ECU)','Auspuff','Spiegel'],0,'Im Zellkern liegt die Erbinformation; sie steuert, welche Proteine gebaut werden.',2],
+['Solardach im Schatten – Ladung fällt!',.7,1,'Welches Teil nutzt Licht für Energie, wie die Chloroplasten?',['Solardach','Reifen','Lenkrad'],0,'Chloroplasten brauchen Licht für die Fotosynthese – ohne Licht keine Zuckerherstellung.',4],
+['Tank-Leck: Vorrat entweicht!',.55,1,'Welches Teil speichert Vorräte und gibt Stabilität durch Druck, wie die Vakuole?',['Tank','Spoiler','Bremse'],0,'Die Vakuole speichert Wasser und Stoffe; ihr Druck hält die Pflanzenzelle prall.',5],
+['Schrott im Kühlergrill!',.7,.8,'Wer kontrolliert, was ins Auto gelangt, wie die Zellmembran?',['Filter am Einlass','Heckflügel','Lenkrad'],0,'Die Zellmembran lässt kontrolliert Stoffe herein und hinaus.',1],
+['Rost an der Karosserie!',.85,.65,'Was schützt und stabilisiert die ganze Hülle, wie die Zellwand?',['Karosserie','Tankdeckel','Navi'],0,'Die Zellwand gibt Pflanzenzellen Halt und Schutz von außen.',0],
+['Motor läuft heiß, Energie knapp!',.45,1,'Wo wird nutzbare Energie (ATP) bereitgestellt, wie in den Mitochondrien?',['Motor','Felgen','Rückspiegel'],0,'Mitochondrien setzen Nährstoffe in ATP um – ohne sie fehlt der Zelle Antriebsenergie.',3],
+['Altteile stapeln sich – Box verstopft!',.9,.9,'Wer baut Altes ab und führt es dem Recycling zu, wie die Lysosomen?',['Recycling-Container','Frontflügel','Funkgerät'],0,'Lysosomen bauen mit Enzymen Stoffe und Zellbestandteile ab.',9],
+['Teile-Lieferung kommt falsch an!',.8,.85,'Wer sortiert und verschickt Teile, wie der Golgi-Apparat?',['Teile-Ausgabe und Versand','Reifen','Kühler'],0,'Der Golgi-Apparat bearbeitet, sortiert und versendet Stoffe zu ihrem Ziel.',7]);
+// ---- Three ----
+const R=new THREE.WebGLRenderer({canvas:$('c'),antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));
+const sc=new THREE.Scene();sc.background=new THREE.Color(0xd9c3a5);sc.fog=new THREE.Fog(0xd9c3a5,140,560);R.outputEncoding=THREE.sRGBEncoding;R.toneMapping=THREE.ACESFilmicToneMapping;R.toneMappingExposure=1.05;R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;
+const cam=new THREE.PerspectiveCamera(65,1,.5,1500);
+const rs=()=>{R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()};addEventListener('resize',rs);rs();
+sc.add(new THREE.HemisphereLight(0xbcd4ff,0x54633a,.5));const dl=new THREE.DirectionalLight(0xffe2b8,1.6);dl.position.set(-160,140,120);dl.castShadow=true;dl.shadow.mapSize.set(2048,2048);Object.assign(dl.shadow.camera,{left:-230,right:230,top:230,bottom:-230,near:10,far:600});dl.shadow.camera.updateProjectionMatrix();dl.shadow.bias=-.0004;sc.add(dl);
+const mat=c=>new THREE.MeshStandardMaterial({color:c,roughness:.6,metalness:.15});
+const mk=(g,c,p,par)=>{const o=new THREE.Mesh(g,typeof c=='number'?mat(c):c);if(p)o.position.set(...p);(par||sc).add(o);return o};
+let TS=0;try{TS=Math.min(2,+localStorage.getItem('crT')||0)}catch(e){}
+const TK=[[0,0,10,'Sunset Circuit','viele Kurven, lange Gerade',[[105,-60],[105,20],[92,75],[50,108],[-10,98],[-45,55],[-100,72],[-152,30],[-142,-45],[-92,-62],[-62,-112],[0,-132],[65,-124],[100,-100]]],[0,0,11,'Chicane Speedway','schnell mit Schikanen',[[150,-60],[150,40],[130,90],[70,110],[20,100],[-10,80],[-40,100],[-100,110],[-150,80],[-165,10],[-150,-60],[-100,-100],[-30,-95],[0,-80],[30,-100],[90,-105]]],[0,0,9,'Technik-Ring','eng und verwinkelt',[[80,-40],[80,30],[60,70],[20,60],[0,30],[-30,50],[-70,60],[-100,20],[-80,-30],[-40,-40],[-20,-70],[20,-80],[60,-75]]]];
+const RX=150,RZ=120,W=TK[TS][2];
+const tx=(b,n,r)=>{const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');x.fillStyle=b;x.fillRect(0,0,256,256);for(let i=0;i<5000;i++){x.fillStyle='rgba('+(n?'0,0,0':'255,255,255')+','+Math.random()*.12+')';x.fillRect(Math.random()*256,Math.random()*256,2,2)}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(r,r);t.encoding=THREE.sRGBEncoding;t.anisotropy=8;return new THREE.MeshStandardMaterial({map:t,roughness:.95,metalness:0})};
+{const c=document.createElement('canvas');c.width=4;c.height=256;const x=c.getContext('2d'),g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#2e63b8');g.addColorStop(.35,'#9fc1e8');g.addColorStop(.5,'#f2c48f');g.addColorStop(1,'#d9c3a5');x.fillStyle=g;x.fillRect(0,0,4,256);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;mk(new THREE.SphereGeometry(900,16,16),new THREE.MeshBasicMaterial({map:t,side:THREE.BackSide,fog:false}))}
+const gr=mk(new THREE.PlaneGeometry(1500,1500),tx('#4a7a34',1,150));gr.rotation.x=-Math.PI/2;gr.receiveShadow=true;
+for(let i=0;i<160;i++){const t=Math.random()*6.2832,k=(1.5+Math.random()*1.6)*.9,g=new THREE.Group(),h=6+Math.random()*8;g.position.set((RX+W+25)*Math.cos(t)*k,0,(RZ+W+25)*Math.sin(t)*k);mk(new THREE.CylinderGeometry(.5,.7,h*.4,6),0x5a3a22,[0,h*.2,0],g);mk(new THREE.ConeGeometry(2.8+h*.12,h,8),0x2c5a2e,[0,h*.6,0],g).castShadow=true;sc.add(g)}
+for(let i=0;i<16;i++){const t=i/16*6.2832;mk(new THREE.ConeGeometry(110+Math.random()*80,140+Math.random()*90,6),0x56677a,[480*Math.cos(t),60,430*Math.sin(t)])}
+for(let i=0;i<4;i++)mk(new THREE.BoxGeometry(70,3+i*2.2,5),[0xb83a3a,0x3a6ab8,0xe0c040,0xdddddd][i],[0,1.5+i*2.2,RZ+W+22+i*5]);
+const _h0=sc.children.length;{const sh=new THREE.Shape();sh.absellipse(0,0,RX+W,RZ+W,0,6.2832,false);const h=new THREE.Path();h.absellipse(0,0,RX-W,RZ-W,0,6.2832,true);sh.holes.push(h);const t=mk(new THREE.ShapeGeometry(sh,80),tx('#38383d',1,.1),[0,.05,0]);t.rotation.x=-Math.PI/2;t.receiveShadow=true}
+const ring=(ra,rb,t,col,y)=>{const s=new THREE.Shape();s.absellipse(0,0,ra+t,rb+t,0,6.2832,false);const h=new THREE.Path();h.absellipse(0,0,ra-t,rb-t,0,6.2832,true);s.holes.push(h);mk(new THREE.ShapeGeometry(s,96),new THREE.MeshBasicMaterial({color:col}),[0,y,0]).rotation.x=-Math.PI/2};
+ring(RX+W-.8,RZ+W-.8,.35,0xffffff,.09);ring(RX-W+.8,RZ-W+.8,.35,0xffffff,.09);
+[[RX+W+.8,RZ+W+.8],[RX-W-.8,RZ-W-.8]].forEach(([a,b])=>{for(let i=0;i<150;i++){const t=i/150*6.2832;if(a>RX+W&&(t<.12||t>6.16))continue;mk(new THREE.BoxGeometry(1.6,.12,2.6),i%2?0xdd2222:0xffffff,[a*Math.cos(t),.08,b*Math.sin(t)]).rotation.y=Math.atan2(-a*Math.sin(t),b*Math.cos(t))}});
+mk(new THREE.BoxGeometry(2*W,.1,2),0xffffff,[RX,.12,0]);
+const PX=RX+W+9;mk(new THREE.BoxGeometry(16,.1,16),new THREE.MeshBasicMaterial({color:0x33ff77,transparent:true,opacity:.5}),[PX,.12,0]);
+[0xff4444,0x44aaff,0xffee44,0xffffff].forEach((c,i)=>{const g=new THREE.Group();g.position.set(PX+Math.cos(i*1.6)*5,0,Math.sin(i*1.6)*5);mk(new THREE.CylinderGeometry(.4,.4,1.5,8),c,[0,.75,0],g);mk(new THREE.SphereGeometry(.4,8,8),0xffcc99,[0,1.8,0],g);sc.add(g)});
+mk(new THREE.BoxGeometry(14,6,4),0x444c66,[PX+14,3,0]);
+for(let i=0;i<40;i++){const t=i/40*6.2832;if(Math.abs(Math.sin(t/2))<.12&&Math.cos(t)>0)continue;const k=mk(new THREE.CylinderGeometry(.9,.9,1.8,10),i%2?0xff3333:0xffffff,[(RX+W+3)*Math.cos(t),.9,(RZ+W+3)*Math.sin(t)])}
+for(let i=0;i<16;i++){const t=i/16*6.2832+.2;mk(new THREE.CylinderGeometry(.3,.3,14,6),0x888888,[(RX+W+8)*Math.cos(t),7,(RZ+W+8)*Math.sin(t)]);mk(new THREE.SphereGeometry(1.5,8,8),new THREE.MeshBasicMaterial({color:0xffffcc}),[(RX+W+8)*Math.cos(t),14,(RZ+W+8)*Math.sin(t)])}
+sc.children.slice(_h0).forEach(o=>o.visible=false);
+const N=360,CX=[],CZ=[],TX=[],TZ=[],NX=[],NZ=[],KV=[],VM=[];let DS=1;
+{const cv=new THREE.CatmullRomCurve3(TK[TS][5].map(p=>new THREE.Vector3(p[0],0,p[1])),true,'catmullrom',.5),ps=cv.getSpacedPoints(N);DS=cv.getLength()/N;
+for(let i=0;i<N;i++){CX.push(ps[i].x);CZ.push(ps[i].z)}
+for(let i=0;i<N;i++){const a=(i+1)%N,b=(i+N-1)%N,dx=CX[a]-CX[b],dz=CZ[a]-CZ[b],l=Math.hypot(dx,dz);TX.push(dx/l);TZ.push(dz/l);NX.push(-dz/l);NZ.push(dx/l)}
+for(let i=0;i<N;i++){let d=Math.atan2(TX[(i+1)%N],TZ[(i+1)%N])-Math.atan2(TX[i],TZ[i]);if(d>Math.PI)d-=6.2832;if(d<-Math.PI)d+=6.2832;KV.push(Math.abs(d)/DS)}
+for(let i=0;i<N;i++){let k=0;for(let j=0;j<6;j++)k=Math.max(k,KV[(i+j)%N]);VM.push(Math.min(58,Math.sqrt(13/Math.max(k,.002))))}
+for(let r=0;r<3;r++)for(let i=N-1;i>=0;i--)VM[i]=Math.min(VM[i],Math.sqrt(VM[(i+1)%N]**2+28*DS))}
+const rib=(lf,hw,y,m,k0,k1)=>{const p=[],uv=[],ix=[];for(let i=k0;i<=k1;i++){const k=(i%N+N)%N,l=lf(i),a=l+hw,b=l-hw;p.push(CX[k]+NX[k]*a,y,CZ[k]+NZ[k]*a,CX[k]+NX[k]*b,y,CZ[k]+NZ[k]*b);uv.push(a/6,i*DS/6,b/6,i*DS/6);if(i<k1){const j=(i-k0)*2;ix.push(j,j+1,j+2,j+1,j+3,j+2)}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();m.side=THREE.DoubleSide;const o=mk(g,m);o.receiveShadow=true;return o};
+const wm=new THREE.MeshBasicMaterial({color:0xffffff}),pl=(c,i)=>c*Math.max(0,Math.min(1,Math.min((i+30)/8,(50-i)/8)));
+rib(()=>0,W,.05,tx('#38383d',1,1),0,N);rib(()=>W-.9,.2,.09,wm,0,N);rib(()=>-(W-.9),.2,.09,wm,0,N);rib(i=>-pl(W+9.5,i),5.2,.07,tx('#4a4a50',1,1),-30,50);
+const pp=c=>{const a=[];for(let i=-30;i<=50;i++){const k=(i+N)%N,l=-pl(c,i);a.push({x:CX[k]+NX[k]*l,z:CZ[k]+NZ[k]*l})}return a},PPp=pp(W+7),PPa=pp(W+12),PB=PPp[34],KBA=[42,50,58];
+mk(new THREE.BoxGeometry(2*W,.1,2),0xffffff,[CX[0],.12,CZ[0]]).rotation.y=Math.atan2(TX[0],TZ[0]);
+const cm=[mat(0xffffff),mat(0xdd2222)];
+for(let i=0;i<N;i+=2)for(const s of[-1,1]){if(s<0&&(i>N-34||i<54))continue;mk(new THREE.BoxGeometry(1.6,.12,DS*2),cm[(i/2)%2],[CX[i]+NX[i]*s*(W+.9),.08,CZ[i]+NZ[i]*s*(W+.9)]).rotation.y=Math.atan2(TX[i],TZ[i])}
+for(let i=0;i<N;i+=5)for(const s of[-1,1]){if(s<0&&(i>N-34||i<66))continue;mk(new THREE.CylinderGeometry(.9,.9,1.8,10),cm[(i/5)%2],[CX[i]+NX[i]*s*(W+13),.9,CZ[i]+NZ[i]*s*(W+13)]).castShadow=true}
+for(let j=0;j<4;j++){const kk=j?KBA[j-1]:34,k=(kk-30+N)%N,g=mk(new THREE.BoxGeometry(14,5,7),[0xe02020,0x2060ff,0xffd020,0xdddddd][j],[CX[k]-NX[k]*(W+21),2.5,CZ[k]-NZ[k]*(W+21)]);g.rotation.y=Math.atan2(TX[k],TZ[k]);g.castShadow=true;for(let c=0;c<3;c++){const m=new THREE.Group();m.position.set(CX[k]-NX[k]*(W+16.5)+TX[k]*(c*1.6-1.6),0,CZ[k]-NZ[k]*(W+16.5)+TZ[k]*(c*1.6-1.6));mk(new THREE.CylinderGeometry(.4,.4,1.5,8),[0xff4444,0x44aaff,0xffee44,0xffffff][j],[0,.75,0],m);mk(new THREE.SphereGeometry(.4,8,8),0xffcc99,[0,1.8,0],m);sc.add(m)}}
+const car=new THREE.Group();sc.add(car);mk(new THREE.BoxGeometry(2,.6,4.2),0xe02020,[0,.7,0],car);mk(new THREE.BoxGeometry(1.2,.5,1.5),0x222233,[0,1.2,-.3],car);mk(new THREE.BoxGeometry(2.4,.1,.7),0x111111,[0,1.5,-2],car);
+[[-1.1,1.4],[1.1,1.4],[-1.1,-1.4],[1.1,-1.4]].forEach(([x,z])=>{mk(new THREE.CylinderGeometry(.45,.45,.4,12),0x111111,[x,.45,z],car).rotation.z=Math.PI/2});
+mk(new THREE.BoxGeometry(1.2,.4,1.6),0xe02020,[0,.65,2.6],car);mk(new THREE.BoxGeometry(2.6,.08,.6),0x111111,[0,.3,3.4],car);mk(new THREE.SphereGeometry(.28,10,8),0xffee00,[0,1.15,.1],car);mk(new THREE.BoxGeometry(.1,.7,.7),0x111111,[-1.2,1.75,-2],car);mk(new THREE.BoxGeometry(.1,.7,.7),0x111111,[1.2,1.75,-2],car);
+const bl=mk(new THREE.BoxGeometry(1.4,.15,.1),new THREE.MeshBasicMaterial({color:0x550000}),[0,.9,-2.15],car);
+car.traverse(o=>o.castShadow=true);car.children.slice().forEach(o=>{if(o!==bl)o.visible=false});car.add(mkCar(0xd01818));bl.position.set(0,.9,-2.55);
+const sk=[];let ski=0;for(let i=0;i<240;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(.3,1),new THREE.MeshBasicMaterial({color:0x111111,transparent:true,opacity:.6}));m.rotation.x=-Math.PI/2;m.visible=false;sc.add(m);sk.push(m)}
+function skid(){for(const sx of[-.9,.9]){const m=sk[ski++%240];m.visible=true;m.position.set(G.x-Math.cos(G.h)*sx-Math.sin(G.h)*1.4,.14,G.z+Math.sin(G.h)*sx-Math.cos(G.h)*1.4);m.rotation.z=G.h}}
+try{const pm=new THREE.PMREMGenerator(R);sc.environment=pm.fromScene(sc,.03).texture}catch(e){}
+// ---- Audio ----
+let AC,eo,eg;function aud(){if(AC)return;try{AC=new(window.AudioContext||window.webkitAudioContext)();eo=AC.createOscillator();eg=AC.createGain();eo.type='sawtooth';eg.gain.value=0;const f=AC.createBiquadFilter();f.frequency.value=500;eo.connect(f);f.connect(eg);eg.connect(AC.destination);eo.start()}catch(e){}}
+function bp(f,d,t,v){if(!AC)return;try{const o=AC.createOscillator(),g=AC.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.value=v||.1;g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+// ---- Zustand ----
+let LAPS=5;let G,hq=true,open_=true,K={},ky={},jx=0,tt;
+function init(){G={x:CX[N-12],z:CZ[N-12],h:Math.atan2(TX[N-12],TZ[N-12]),v:0,vx:0,vz:0,sa:0,thr:0,gear:1,slip:0,prog:0,strat:1,hp:Array(11).fill(100),goPit:false,auto:false,place:1,tire:1,tw:0,ps:0,fuel:0,ft:0,solar:0,pw:1,gripM:1,mgr:false,lk:-1,lt:0,lap:0,t:0,pen:0,bon:0,pts:0,ev:null,next:10,last:-1,lastLap:0,fixed:[],lapT:[]};car.position.set(G.x,0,G.z);prog0()}
+function prog0(){G.ci=N-12;G.ta=G.ci;G.ta0=-12}
+let best=null;try{best=+localStorage.getItem('cr1'+TS)||null}catch(e){}
+function toast(h,ms){const t=$('toast');t.innerHTML=h;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),ms||3000)}
+function dlg(h,bs){$('dl').innerHTML=h+'<div></div>';const b=$('dl').lastChild;bs.forEach(([l,f])=>{const e=document.createElement('button');e.textContent=l;e.onclick=()=>{$('dlg').style.display='none';open_=false;f&&f()};b.appendChild(e)});$('dlg').style.display='flex';open_=true}
+function table(){return'<p><b>Wofür steht was?</b> Das Auto = die ganze Pflanzenzelle, die Rennstrecke = ihre laufenden Lebensvorgänge (Stoffwechsel), das Team = die Organellen, die Gegner = Konkurrenz und Umweltstress. Grenze: Eine Zelle will kein Rennen gewinnen und wird nicht von außen gelenkt, sie regelt sich selbst.</p>'+(G&&G.hp?bars():'')+'<table><tr><th>Zellbestandteil</th><th>Im Rennteam</th><th>Warum / Grenze</th></tr>'+TEAM.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')+'</table>'}
+function help(){dlg('<b>Steuerung</b><br>Joystick links/rechts: lenken · Gas/Bremse (rückwärts möglich) · Boxenstopp: nur in der grünen Box, langsam.<br>Tastatur: W = Gas, S = Bremse (stehend: Rückwärts), A/D = lenken, Leertaste = Handbremse, E = Box.<br><br><b>Ziel:</b> Fahre 3 Runden. Unterwegs treten Probleme auf – fahre in die Box und entscheide als Teamchef, welcher Bereich zuständig ist. Richtig = Zeitbonus, falsch = Strafzeit.',[['Zurück zum Rennen'],['Team ansehen',()=>dlg('<b>Dein Team = die Pflanzenzelle</b><br>'+table(),[['Schließen']])]])}
+$('bt1').onclick=()=>{if(!open_)dlg('<b>Dein Team = die Pflanzenzelle</b><br>'+table(),[['Schließen']])};$('bt2').onclick=()=>{if(!open_)menu()};
+// ---- Eingabe ----
+addEventListener('keydown',e=>{ky[e.code]=1;aud();if(e.code=='KeyE')pit()});addEventListener('keyup',e=>ky[e.code]=0);
+document.querySelectorAll('#bt button').forEach(b=>{const k=b.dataset.k;b.addEventListener('pointerdown',e=>{e.preventDefault();aud();b.setPointerCapture(e.pointerId);K[k]=1;b.classList.add('on2');if(k=='pit')pit()});const u=()=>{K[k]=0;b.classList.remove('on2')};b.addEventListener('pointerup',u);b.addEventListener('pointercancel',u)});
+const jb=$('jb');let jid=null;function jm(e){const r=jb.getBoundingClientRect();let a=Math.atan2(e.clientX-r.left-r.width/2,-(e.clientY-r.top-r.height/2));a=Math.max(-2,Math.min(2,a));jx=a/2}
+jb.addEventListener('pointerdown',e=>{aud();jid=e.pointerId;jb.setPointerCapture(jid);jm(e)});jb.addEventListener('pointermove',e=>{if(e.pointerId==jid)jm(e)});const jr=e=>{if(e.pointerId==jid){jid=null;jx=0;$('jk').style.transform=''}};jb.addEventListener('pointerup',jr);jb.addEventListener('pointercancel',jr);
+// ---- Spiel ----
+function pit(){if(open_||!G)return;const inP=Math.hypot(G.x-PB.x,G.z-PB.z)<6;if(G.auto&&!G.goPit&&!inP){G.goPit=true;return toast('Boxenfunk: Der Wagen kommt zur Box.',2500)}if(!inP)return toast('Du bist nicht in der grünen Box (rechts neben Start/Ziel).',2200);if(Math.abs(G.v)>12)return toast('Zu schnell! Bremse unter 40 km/h.',2000);if(G.demo){G.ev=null;G.hp=G.hp.map(()=>100);G.goPit=false;return execPit(false)}
+ if(!G.ev){G.v=G.vx=G.vz=0;G.pen+=3;return strat();return toast('Keine Störung. Der Wagen ist in Ordnung – weiterfahren!',2200)}
+ bp(600,.2,'triangle');const e=G.ev;G.v=G.vx=G.vz=0;dlg('<b>Teamchef-Entscheidung</b><br>'+e[0]+'<br><br>'+e[3],[]);ask(e)}
+function ask(e){dlg('<b>Teamchef-Entscheidung</b><br>⚠ '+e[0]+'<br><br>'+e[3],e[4].map((o,j)=>[o,()=>{if(j==e[5]){G.pts+=10;G.bon+=3;G.fixed.push(e[7]);G.hp[e[7]]=100;G.ev=null;G.next=G.t+[18,12,7][G.strat];bp(880,.2);dlg('✔ Richtig! '+e[6]+'<br><i>Zellbezug: '+TEAM[e[7]][0]+'. '+TEAM[e[7]][2]+'</i><br>−3 s Zeitbonus, +10 Wissen.',[['Weiter zur Strategie',strat]])}else{G.pen+=5;bp(120,.4,'sawtooth',.2);dlg('✘ Noch nicht – Hinweis: '+e[6]+'<br><i>+5 s Strafzeit. Entscheide noch einmal.</i>',[['Nochmal',()=>ask(e)]])}}]))}
+function strat_old(){G.goPit=false;dlg('<b>Management: Strategie wählen</b><br>Die Strategie entspricht der <i>Stoffwechselrate</i> der Zelle: Mehr Leistung braucht mehr Energie und führt öfter zu Störungen.<br>Aktuell: '+['sparsam','normal','Angriff'][G.strat]+'<br>'+bars(),[['🐢 Sparsam: −12 % Tempo, seltene Störungen',()=>G.strat=0],['⚖ Normal',()=>G.strat=1],['🔥 Angriff: +10 % Tempo, häufige Störungen',()=>G.strat=2]])}
+function begin_old(auto){aud();init();G.auto=auto;ai.forEach((a,i)=>a.t=.25+i*.22);$('bt').children[2].textContent=auto?'📻 Box rufen':'🔧 Boxenstopp';strat()}
+function bars(){return'<div>'+TEAM.map((r,i)=>`<div style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="width:48%">${r[1]}</span><div style="flex:1;height:8px;background:#333;border-radius:4px"><div style="width:${G.hp[i]}%;height:100%;border-radius:4px;background:${G.hp[i]<50?'#f55':'#5f5'}"></div></div></div>`).join('')+'</div>'}
+function autoDrive_old(){const t=Math.atan2(G.z/RZ,G.x/RX);let tx,tz;const fwd=G.v,cur=.35+.65*Math.abs(Math.sin(t));let vt=(14+30*cur)*[.88,1,1.1][G.strat]*(G.ev?G.ev[1]:1);
+if(G.goPit&&t<0&&t>-.9){tx=PX;tz=0;const d=Math.hypot(G.x-PX,G.z);if(d<40)vt=Math.min(vt,Math.max(3,d*.5));if(d<9&&Math.abs(G.v)<8&&!open_){pit();return[0,1,0]}}
+else{const tt=t+.12+Math.abs(G.v)*.004;tx=RX*Math.cos(tt);tz=RZ*Math.sin(tt)}
+const hd=Math.atan2(tx-G.x,tz-G.z);let er=hd-G.h;while(er>Math.PI)er-=6.2832;while(er<-Math.PI)er+=6.2832;return[fwd<vt,fwd>vt+3,Math.max(-1,Math.min(1,-er*2.2))]}
+const ai=[0x2060ff,0xffd020,0xffffff].map((c,i)=>{const g=new THREE.Group();mk(new THREE.BoxGeometry(2,.6,4.2),c,[0,.7,0],g);mk(new THREE.BoxGeometry(1.2,.5,1.5),0x222233,[0,1.2,-.3],g);mk(new THREE.BoxGeometry(1.2,.4,1.6),c,[0,.65,2.6],g);mk(new THREE.BoxGeometry(2.4,.1,.7),0x111111,[0,1.5,-2],g);[[-1.1,1.4],[1.1,1.4],[-1.1,-1.4],[1.1,-1.4]].forEach(([x,z])=>{mk(new THREE.CylinderGeometry(.45,.45,.4,12),0x111111,[x,.45,z],g).rotation.z=Math.PI/2});g.traverse(o=>o.castShadow=true);g.children.slice().forEach(o=>o.visible=false);g.add(mkCar(c));sc.add(g);return{g,t:8+i*14,sp:36+i*3,off:i%2?-4:4,st:0,cd:25+i*18,pp:0,wt:0,base:0,v:28,pk:0}});
+function updAI_old(dt){ai.forEach((a,i)=>{aiPit(a,i,dt);if(a.st==0){const ds=Math.hypot(RX*Math.sin(a.t),RZ*Math.cos(a.t)),v=a.sp*(.7+.3*Math.abs(Math.sin(a.t)));a.t+=v*dt/ds;const nx=Math.cos(a.t)/RX,nz=Math.sin(a.t)/RZ,nl=Math.hypot(nx,nz);a.g.position.set(RX*Math.cos(a.t)+nx/nl*a.off,0,RZ*Math.sin(a.t)+nz/nl*a.off);a.g.rotation.y=Math.atan2(-RX*Math.sin(a.t),RZ*Math.cos(a.t))}const dx=G.x-a.g.position.x,dz=G.z-a.g.position.z,d=Math.hypot(dx,dz)||1;if(d<3.8){G.x+=dx/d*(3.8-d)*.6;G.z+=dz/d*(3.8-d)*.6;G.vx*=.93;G.vz*=.93;G.v*=.93;shk=.3;bp(200,.1,'square',.1)}});G.place=1+ai.filter(a=>a.t>G.prog+G.ta0).length}
+const OPT=['Soft','Medium','Hard','Regen'];
+const P={tire:1,fill:2,ft:0,solar:0,strat:1,parts:0,flow:0,junk:1};
+const CARDS=[
+['tire','Reifen','Zellwand/-membran',['Soft','Medium','Hard','Regen'],'Schnittstelle zur Außenwelt. Soft = viel Grip, schneller Verschleiß (flexible Hülle); Hard = haltbar, weniger Grip (stabile Wand); Regen ist auf trockener Bahn schlecht.'],
+['fill','Tankmenge','Vakuole',['25 %','50 %','75 %','100 %'],'Speicherraum. Mehr Sprit = längere Fahrt, aber schwereres Auto (Vakuolen speichern Vorräte, brauchen aber Platz).'],
+['ft','Kraftstoffart','Mitochondrien',['Standard','Hochleistung','Eco'],'Die Nährstoffart bestimmt die Energieausbeute: Hochleistung +7 % Leistung, +35 % Verbrauch; Eco −30 % Verbrauch, −7 % Leistung.'],
+['solar','Solarladung','Chloroplasten',['Aus','Laden'],'Licht wird in Energie umgewandelt: +5 % Leistung für 60 s, kostet 1,5 s in der Box.'],
+['strat','Strategie','Zellkern',['Sparsam','Normal','Angriff'],'Der Bordcomputer legt die Stoffwechselrate fest: Angriff ist schneller, belastet Reifen und Teile aber stärker.'],
+['parts','Ersatzteile','ER + Ribosomen',['Keine','Reparatur'],'Teile werden hergestellt und eingebaut: stellt abgenutzte Systeme wieder her (+2 s). Unter 50 % Zustand sinkt die Leistung.'],
+['flow','Ablauf','Golgi-Apparat',['Sorgfältig','Schnell'],'Sortieren und Versenden: Schnell spart 1,5 s, hat aber 30 % Fehlerrisiko (+4 s).'],
+['junk','Entsorgung','Lysosomen',['Aus','An'],'Altreifen und Schrott abbauen und recyceln. Ohne Entsorgung blockiert Müll die Box (+1,5 s).']];
+function cards(el){el.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px">'+CARDS.map((c,i)=>`<div style='border:1px solid #356;border-radius:8px;padding:6px;background:#0a1824'><b>${c[1]}</b> <small style='color:#8cf'>${c[2]}</small><div>${c[3].map((o,j)=>`<button data-c=${i} data-o=${j} style='padding:6px 8px;margin:3px 3px 0 0;font-size:12px;${P[c[0]]==j?'background:#ffd23a;color:#210':''}'>${o}</button>`).join('')}</div><small style='opacity:.75'>${c[4]}</small></div>`).join('')+'</div>';el.querySelectorAll('button').forEach(b=>b.onclick=()=>{const c=CARDS[+b.dataset.c];P[c[0]]=+b.dataset.o;if(c[0]=='strat')G.strat=P.strat;bp(700,.05,'triangle',.05);cards(el)})}
+function execPit(free){const f=[25,50,75,100][P.fill];let t=free?0:4,L=free?[]:['Grundzeit Boxenstopp: 4 s'];const add=(s,x)=>{t+=x;L.push(s+': '+(x>=0?'+':'')+x.toFixed(1)+' s')};
+ G.tire=P.tire;G.tw=0;if(!free)add('Reifenwechsel '+OPT[P.tire]+' (Zellwand/-membran)',2.5);
+ const nf=Math.min(100,G.fuel+f);if(!free)add('Tanken '+f+' % (Vakuole)',(nf-G.fuel)*.04);G.fuel=nf;G.ft=P.ft;
+ if(P.solar){G.solar=60;if(!free)add('Solarladung (Chloroplasten)',1.5)}
+ G.strat=P.strat;
+ if(P.parts){G.hp=G.hp.map(()=>100);if(!free)add('Ersatzteile eingebaut (ER + Ribosomen)',2)}
+ if(!free){if(P.flow){Math.random()<.3?add('Schnellablauf: Fehler beim Versand (Golgi)',4):add('Schnellablauf klappt (Golgi)',-1.5)}if(!P.junk)add('Müll blockiert die Box (Lysosomen fehlen)',1.5)}
+ G.goPit=false;if(!free){G.pen+=t;G.next=G.t+[18,12,7][G.strat]}
+ dlg('<b>'+(free?'Startaufstellung bereit':'Boxenstopp beendet')+'</b><br>Reifen '+OPT[P.tire]+' · Tank '+Math.round(G.fuel)+' % · '+['Standard','Hochleistung','Eco'][P.ft]+(L.length?'<br>'+L.join('<br>'):'')+(free?'':'<br><b>Gesamt: +'+t.toFixed(1)+' s</b>'),[[free?'🏁 Los!':'Weiterfahren']])}
+function strat(){if(G.mgr){G.goPit=false;return execPit(false)}G.goPit=false;dlg('<b>Boxenfunk: Boxenstopp planen</b><br>Weise dein Team an. Jede Karte steht für ein Organell der Zelle.<div id="pcx"></div>',[['✔ Anweisungen ausführen',()=>execPit(false)]]);cards($('pcx'))}
+function begin(auto){aud();init();G.auto=auto;G.mgr=auto;ai.forEach((a,i)=>{a.t=8+i*14;a.st=0;a.v=28;a.cd=25+i*18});$('bt').children[2].textContent=auto?'📻 Box rufen':'🔧 Boxenstopp';$('mgr').style.display=auto?'block':'none';$('jb').style.display=$('bt').style.display=auto?'none':'';if(auto)mgrBuild();
+ dlg('<b>Startaufstellung: Fahrzeug einstellen</b><br>'+(auto?'Du bist der Manager am Kommandostand: Das Auto fährt selbst.':'Du fährst selbst und managst in der Box.')+'<div id="pcx"></div>',[['🏁 Rennen starten',()=>execPit(true)]]);cards($('pcx'))}
+function mgrBuild(){cards($('mc'));$('mcall').onclick=()=>{aud();if(open_)return;if(G.goPit)toast('Wagen ist schon zur Box unterwegs.',1500);else{G.goPit=true;toast('📻 „Box, Box, Box!“ – der Wagen kommt rein.',2200)}};$('mmenu').onclick=()=>{if(!open_)menu()}}
+function mgrTick(){const b=(n,v,c)=>`<div style='font-size:12px'>${n} ${Math.round(v)} %<div style='height:8px;background:#233;border-radius:4px'><div style='width:${v}%;height:100%;border-radius:4px;background:${c}'></div></div></div>`;
+$('ml').innerHTML='<b>📊 Telemetrie</b>'+b('🛞 Reifen ('+OPT[G.tire]+')',100-G.tw,G.tw>75?'#f55':'#5f5')+b('⛽ Tank ('+['Standard','Hochleistung','Eco'][G.ft]+')',G.fuel,G.fuel<20?'#f55':'#5cf')+b('☀ Solar',G.solar/.6,'#fd3')+bars();
+$('mr').innerHTML=`<b>🏁 Rennleitung</b><br>Runde ${Math.min(G.lap+1,LAPS)}/${LAPS} · Platz ${G.place}/4<br>Tempo ${Math.round(Math.abs(G.v)*3.6)} km/h<br>${G.ev?'<span style="color:#f77">⚠ '+G.ev[0]+'</span>':'<span style="color:#7f7">Alle Systeme stabil</span>'}<br>${G.tw>80?'⚠ Reifen verschlissen<br>':''}${G.fuel<15?'⚠ Tank fast leer<br>':''}${G.goPit?'📻 Wagen kommt in die Box':'Autopilot: Strategie '+['sparsam','normal','Angriff'][G.strat]}`;$('mtime').textContent=G.t.toFixed(1)+' s'}
+function menu(){dlg('<h2 style="margin:0">CELL RACER – Menü</h2><i>Pflanzenzelle = Rennwagen + Boxenteam</i>',[['▶ Neues Rennen: selbst fahren',()=>begin(false)],['🖥 Neues Rennen: Manager-Modus',()=>begin(true)],['📖 Lernzentrum',()=>learn()],['🎓 Einweisung',tutStart],['🗺 Strecke: '+TK[TS][3],trackSel],['⚙ Einstellungen',sets],['↩ Weiter',null]])}
+const LP=[['Analogie',()=>table()],['Reifen','<b>Reifen = Zellwand/-membran</b><br>Soft: viel Grip, schneller Verschleiß. Medium: Kompromiss. Hard: haltbar, weniger Grip. Regen: nur bei Nässe sinnvoll. Verschleiß über 60 % senkt den Grip. <i>Grenze: Eine Zellwand wird nicht gewechselt, sie wächst und wird umgebaut.</i>'],['Kraftstoff','<b>Tank = Vakuole, Kraftstoffart = Nährstoff für die Mitochondrien</b><br>Standard: ausgewogen. Hochleistung: +7 % Leistung, +35 % Verbrauch. Eco: −7 % Leistung, −30 % Verbrauch. Mehr Sprit macht das Auto schwerer. <i>Grenze: Mitochondrien verbrennen nicht, sie wandeln Energie schrittweise zu ATP um.</i>'],['Boxenteam',()=>'<b>Dein Team</b><br>'+CARDS.map(c=>'• <b>'+c[1]+'</b> ('+c[2]+'): '+c[4]).join('<br>')],['Steuerung','<b>Fahren:</b> W Gas, S Bremse/Rückwärts, A/D lenken, Leertaste Handbremse, E Box. Touch: Joystick und Buttons.<br><b>Manager-Modus:</b> Das Auto fährt selbst. Du sitzt am Kommandostand, stellst die Anweisungen ein und rufst den Wagen mit „Boxenstopp anordnen“. In der Box beantwortest du die Diagnosefrage.<br><b>Ziel:</b> Runden fahren, Störungen lösen, Zeit sparen, Wissen sammeln.']];
+function learn(i){i=i||0;dlg('<b>Lernzentrum</b><br>'+(typeof LP[i][1]=='function'?LP[i][1]():LP[i][1]),LP.map((p,j)=>[(j==i?'▸ ':'')+p[0],()=>learn(j)]).concat([['↩ Menü',menu]]))}
+function sets(){dlg('<b>Einstellungen</b><br>Grafik: '+(hq?'Hoch (Schatten)':'Niedrig')+' · Runden: '+LAPS,[['Grafik umschalten',()=>{hq=!hq;R.shadowMap.enabled=hq;dl.castShadow=hq;R.setPixelRatio(hq?Math.min(devicePixelRatio,2):1);sc.traverse(o=>{if(o.material)o.material.needsUpdate=true});sets()}],['Runden: 1',()=>{LAPS=1;sets()}],['3',()=>{LAPS=3;sets()}],['5',()=>{LAPS=5;sets()}],['↩ Menü',menu]])}
+function aiPit_old(a,i,dt){const S={x:PX+6,z:-5+i*5};
+ if(a.st==0){a.cd-=dt;const m=((a.t%6.2832)+6.2832)%6.2832;if(a.cd<=0&&m>5.4&&m<5.8){a.st=1;a.pp=0;a.base=a.t-m;a.E=a.g.position.clone()}return}
+ a.pp+=dt/3;const q=Math.min(1,a.pp);
+ if(a.st==1){const E=a.E;a.g.position.set(E.x+(S.x-E.x)*q,0,E.z+(S.z-E.z)*q);a.g.rotation.y=Math.atan2(S.x-E.x,S.z-E.z);if(a.pp>=1){a.st=2;a.wt=4+Math.random()*2}}
+ else if(a.st==2){a.wt-=dt;if(a.wt<=0){a.st=3;a.pp=0}}
+ else{const X={x:RX*Math.cos(.25),z:RZ*Math.sin(.25)};a.g.position.set(S.x+(X.x-S.x)*q,0,S.z+(X.z-S.z)*q);a.g.rotation.y=Math.atan2(X.x-S.x,X.z-S.z);if(a.pp>=1){a.st=0;a.t=a.base+6.2832+.25;a.cd=45+Math.random()*30}}}
+let WA=0;
+function dashU(){const k=Math.round(Math.abs(G.v)*3.6),gs=70/6,rp=G.v<-1?.2:(Math.abs(G.v)%gs)/gs;$('dash').innerHTML=`<div class=sp>${k}<small style='font-size:13px'> km/h</small></div><div style='font-size:22px;color:#ffd23a;font-weight:700'>Gang ${G.gear<0?'R':G.gear}</div><div style='height:7px;width:190px;margin:2px auto;background:#223;border-radius:4px'><div style='width:${Math.round(rp*100)}%;height:100%;border-radius:4px;background:${rp>.85?'#f44':'#4cf'}'></div></div>`;WA+=((G.stIn||0)*100-WA)*.3;$('jk').style.transform='rotate('+WA+'deg)'}
+const TUT=['Willkommen im Cockpit! Der <b>Autopilot</b> fährt jetzt für dich, damit du alles in Ruhe kennenlernst. Das Auto steht für die ganze Pflanzenzelle, das Rennen für ihre Lebensvorgänge, das Team für die Organellen.','<b>Unten in der Mitte</b> siehst du Tempo (km/h), Gang und Drehzahl. Der Motor entspricht den Mitochondrien: Sie liefern die Energie für den Antrieb.','<b>Links</b> ist das Lenkrad. Du lenkst per Touch am Rad oder mit A und D. W gibt Gas, S bremst (stehend: rückwärts), die Leertaste ist die Handbremse. Schau, wie sich das Rad gerade selbst dreht.','<b>Oben links</b>: Runde, Platz, Reifen und Tank. Reifen = Zellwand/-membran, Tank = Vakuole. Reifen verschleißen, der Tank leert sich. Die Gegner fahren zwischendurch selbst zum Boxenstopp.','Gleich fällt ein System aus. Störungen stehen für gestörte Zellfunktionen. Dann musst du in die grüne Box.','Der Wagen fährt jetzt automatisch in die Box. Dort würdest du als Teamchef eine Diagnosefrage beantworten.','In der Box gibst du dem Team Anweisungen: Reifen, Tankmenge, Kraftstoffart, Strategie und mehr. Jedes Teammitglied steht für ein Organell. Im Manager-Modus erledigst du das vom Kommandostand aus, während das Auto allein fährt.','Das war’s! Im Menü findest du das Lernzentrum, die Streckenwahl und die Einstellungen. Viel Erfolg!'];
+let TI=0;
+function tutStart(){aud();init();G.auto=true;G.mgr=false;G.demo=true;G.fuel=75;G.next=1e9;ai.forEach((a,i)=>{a.t=8+i*14;a.st=0;a.v=28;a.cd=25+i*18});$('mgr').style.display='none';$('jb').style.display=$('bt').style.display='';$('bt').children[2].textContent='📻 Box rufen';TI=0;showTut()}
+function showTut(){if(TI>=TUT.length)return tutEnd();const t=$('tut');t.style.display='block';t.innerHTML='<b>Einweisung '+(TI+1)+'/'+TUT.length+'</b><br>'+TUT[TI]+'<br><button id=tn>Weiter</button><button id=ts>Überspringen</button>';$('tn').onclick=()=>{TI++;if(TI==4)newEv();if(TI==5)G.goPit=true;showTut()};$('ts').onclick=tutEnd}
+function tutEnd(){$('tut').style.display='none';G.demo=false;G.ev=null;G.goPit=false;menu()}
+function trackSel(){dlg('<b>Strecke wählen</b><br>Das Spiel lädt danach neu.',TK.map((k,i)=>[(i==TS?'✔ ':'')+k[3]+' ('+k[4]+')',()=>{try{localStorage.setItem('crT',i)}catch(e){}location.reload()}]).concat([['↩ Menü',menu]]))}
+function mkCar(c){const g=new THREE.Group(),b=new THREE.MeshStandardMaterial({color:c,roughness:.3,metalness:.5}),k=mat(0x15151a),s=mat(0xc8c8d0),R9=Math.PI/2;const add=(geo,m,p,r)=>{const o=mk(geo,m,p,g);if(r)o.rotation.set(...r);o.castShadow=true;return o};
+add(new THREE.CylinderGeometry(.3,.75,2.4,12),b,[0,.55,1.8],[R9,0,0]);add(new THREE.BoxGeometry(1.5,.55,2.4),b,[0,.6,-.1]);add(new THREE.BoxGeometry(.9,.7,1.8),b,[1.15,.5,-.2]);add(new THREE.BoxGeometry(.9,.7,1.8),b,[-1.15,.5,-.2]);add(new THREE.CylinderGeometry(.85,.4,1.9,12),b,[0,.65,-1.9],[R9,0,0]);
+add(new THREE.SphereGeometry(.3,12,10),mat(0xffee00),[0,1,-.1]);add(new THREE.BoxGeometry(.5,.55,1),b,[0,1.05,-.9]);add(new THREE.TorusGeometry(.42,.05,6,14,Math.PI),k,[0,.95,.15],[0,0,0]);
+add(new THREE.BoxGeometry(2.6,.06,.7),k,[0,.2,3.05]);[-1.3,1.3].forEach(x=>add(new THREE.BoxGeometry(.05,.3,.7),k,[x,.3,3.05]));
+add(new THREE.BoxGeometry(2.2,.07,.6),k,[0,1.5,-2.5]);[-.5,.5].forEach(x=>add(new THREE.BoxGeometry(.08,.8,.3),k,[x,1.1,-2.4]));[-1.1,1.1].forEach(x=>add(new THREE.BoxGeometry(.05,.6,.7),k,[x,1.45,-2.5]));
+[[-1.1,1.6,.42],[1.1,1.6,.42],[-1.15,-1.5,.5],[1.15,-1.5,.5]].forEach(([x,z,r])=>{add(new THREE.CylinderGeometry(r,r,.5,18),k,[x,r,z],[0,0,R9]);add(new THREE.CylinderGeometry(r*.6,r*.6,.52,10),s,[x,r,z],[0,0,R9])});return g}
+function autoDrive(){const i=G.ci;let tx,tz,vt;
+ if(G.goPit&&G.ps==0&&i>N-52&&i<N-30)G.ps=1;
+ if(G.ps==1&&!G.goPit)G.ps=2;
+ if(G.ps){let k=0,bd=1e9;for(let j=0;j<PPp.length;j++){const d=(G.x-PPp[j].x)**2+(G.z-PPp[j].z)**2;if(d<bd){bd=d;k=j}}
+ if(G.ps==1){const t=PPp[Math.min(k+3,34)],db=Math.hypot(G.x-PB.x,G.z-PB.z);tx=t.x;tz=t.z;vt=db<25?Math.max(1.5,db*.6):20;if(k>=32&&db<3&&Math.abs(G.v)<3&&!open_){pit();return[0,1,0]}}
+ else{const t=PPp[Math.min(k+3,PPp.length-1)];tx=t.x;tz=t.z;vt=20;if(k>=PPp.length-5)G.ps=0}}
+ if(!G.ps){const la=Math.max(3,Math.round((8+Math.abs(G.v)*.5)/DS)),j=(i+la)%N;tx=CX[j];tz=CZ[j];vt=VM[i]*Math.sqrt(G.gripM)*[.88,1,1.1][G.strat]*(G.ev?G.ev[1]:1)*.95}
+ const hd=Math.atan2(tx-G.x,tz-G.z);let er=hd-G.h;while(er>Math.PI)er-=6.2832;while(er<-Math.PI)er+=6.2832;return[G.v<vt,G.v>vt+3,Math.max(-1,Math.min(1,-er*2.4))]}
+function posAI(a,t){const m=((t%N)+N)%N,i=Math.floor(m),j=(i+1)%N,f=m-i;a.g.position.set(CX[i]+(CX[j]-CX[i])*f+NX[i]*a.off,0,CZ[i]+(CZ[j]-CZ[i])*f+NZ[i]*a.off);a.g.rotation.y=Math.atan2(TX[i],TZ[i])}
+function updAI(dt){ai.forEach((a,i)=>{const m=a.t%N;
+ if(a.st==0){const vt=VM[Math.floor(m)]*a.sp/40;a.v+=Math.sign(vt-a.v)*Math.min(Math.abs(vt-a.v),(vt>a.v?9:16)*dt);a.t+=a.v*dt/DS;a.cd-=dt;if(a.cd<=0&&m>N-32&&m<N-26){a.st=1;a.pk=Math.max(0,m-(N-30));a.base=Math.floor(a.t/N)*N}posAI(a,a.t)}
+ else{const P=PPa,kb=KBA[i],dist=(kb-a.pk)*DS;let vt=20;if(a.st==1)vt=dist<22?Math.max(1.5,dist*.8):20;if(a.st==2)vt=0;a.v+=Math.sign(vt-a.v)*Math.min(Math.abs(vt-a.v),12*dt);a.pk+=a.v*dt/DS;
+ if(a.st==1&&a.pk>=kb-.2&&a.v<2.5){a.st=2;a.wt=4+Math.random()*2;a.pk=kb;a.v=0}
+ else if(a.st==2){a.wt-=dt;if(a.wt<=0)a.st=3}
+ else if(a.st==3&&a.pk>=P.length-1.5){a.st=0;a.t=a.base+N+50;a.cd=50+Math.random()*30;posAI(a,a.t)}
+ if(a.st!=0){const k=Math.min(P.length-2,Math.floor(a.pk)),f=Math.min(1,a.pk-k),p=P[k],q=P[k+1];a.g.position.set(p.x+(q.x-p.x)*f,0,p.z+(q.z-p.z)*f);a.g.rotation.y=Math.atan2(q.x-p.x,q.z-p.z)}}
+ const dx=G.x-a.g.position.x,dz=G.z-a.g.position.z,d=Math.hypot(dx,dz)||1;if(d<3.8){G.x+=dx/d*(3.8-d)*.6;G.z+=dz/d*(3.8-d)*.6;G.vx*=.93;G.vz*=.93;G.v*=.93;shk=.3;bp(200,.1,'square',.1)}});G.place=1+ai.filter(a=>a.t>G.prog+G.ta0).length}
+function newEv(){let i;do i=Math.floor(Math.random()*EV.length);while(i==G.last);G.last=i;const q=EV[i].slice(),ops=q[4].map((o,j)=>[o,j==q[5]]).sort(()=>Math.random()-.5);q[4]=ops.map(x=>x[0]);q[5]=ops.findIndex(x=>x[1]);G.ev=q;G.hp[q[7]]=25;bp(900,.15,'square',.15);setTimeout(()=>bp(700,.15,'square',.15),180)}
+function finish(){if(G.demo){tutEnd();return}const T=G.t+G.pen-G.bon;let nb='';try{if(!best||T<best){best=T;localStorage.setItem('cr1'+TS,T)}else nb=''}catch(e){}open_=true;dlg(`<h2 style="margin:0">Ziel erreicht!</h2>Gesamtzeit: <b>${T.toFixed(1)} s</b> (Fahrzeit ${G.t.toFixed(1)}, Strafe +${G.pen}, Bonus −${G.bon})<br>Beste Zeit: ${best?best.toFixed(1)+' s':'–'} · Wissenspunkte: ${G.pts} · Platz ${G.place||1}/4 · Modus: ${G.auto?'Management (Autopilot)':'Fahren + Management'}<br><br>Du hast gelernt: Eine Zelle funktioniert wie ein gut abgestimmtes Team – jeder Bestandteil hat eine Aufgabe, und fällt einer aus, leidet das Ganze.<br><br>`+table(),[['Nochmal fahren',()=>{begin(G.auto)}]])}
+function hud(){const T=G.t;$('hud').innerHTML=`🏁 Runde ${Math.min(G.lap+1,LAPS)}/${LAPS} · Platz ${G.place||1}/4<br>⚙ ${G.auto?'Autopilot':'Manuell'} · Strategie ${['sparsam','normal','Angriff'][G.strat]}<br>⏱ ${T.toFixed(1)} s (+${G.pen} −${G.bon})<br>🚗 ${Math.round(Math.abs(G.v)*3.6)} km/h · Gang ${G.gear<0?'R':G.gear}<br>🛞 ${OPT[G.tire]} ${Math.round(100-G.tw)} % · ⛽ ${Math.round(G.fuel)} %<br>🎓 Wissen ${G.pts}<br>🏆 Beste ${best?best.toFixed(1)+' s':'–'}`;
+ const w=$('warn');if(G.ev){w.className='p al';w.innerHTML='⚠ '+G.ev[0]+'<br>'+(G.auto?'Rufe den Wagen mit „Box rufen“ in die Box!':'Fahre in die grüne Box und drücke Boxenstopp!')}else{w.className='p';w.innerHTML=G.tw>80?'⚠ Reifen verschlissen – Boxenstopp planen':G.fuel<15?'⚠ Tank fast leer – Boxenstopp planen':'Alles im grünen Bereich'}}
+function near(x,z,h){let b=-1,bd=1e9;const f=h==null;for(let j=f?0:-30;j<(f?N:31);j++){const i=f?j:(h+j+N)%N,dx=x-CX[i],dz=z-CZ[i],d=dx*dx+dz*dz;if(d<bd){bd=d;b=i}}return b}
+function ontrack(){G.ci=near(G.x,G.z,G.ci);const i=G.ci;G.d=(G.x-CX[i])*NX[i]+(G.z-CZ[i])*NZ[i];const win=i>N-34||i<56;G.inPit=win&&G.d<-(W+3)&&G.d>-(W+17);return Math.abs(G.d)<W+1||G.inPit}
+const clk=new THREE.Clock();let orb=0,shk=0;const tv=new THREE.Vector3();
+function loop(){requestAnimationFrame(loop);const dt=Math.min(clk.getDelta(),.05);
+ if(open_){orb+=dt*.15;if(G.t==0){cam.position.set(G.x+Math.sin(orb)*14,5,G.z+Math.cos(orb)*14);cam.lookAt(car.position.x,1,car.position.z)}R.render(sc,cam);return}
+ G.t+=dt;if(!G.ev&&G.t>G.next)newEv();
+ const em=G.ev?G.ev[1]:1,es=G.ev?G.ev[2]:1,on=ontrack();
+ let gas=K.gas||ky.ArrowUp||ky.KeyW,brk=K.brk||ky.ArrowDown||ky.KeyS,hb=ky.Space,st=Math.abs(jx)>.08?jx:((ky.ArrowRight||ky.KeyD?1:0)-(ky.ArrowLeft||ky.KeyA?1:0));
+ if(G.auto)[gas,brk,st]=autoDrive();G.stIn=st;
+ const fx=Math.sin(G.h),fz=Math.cos(G.h),rx_=-Math.cos(G.h),rz_=Math.sin(G.h);
+ let vf=G.vx*fx+G.vz*fz,vl=G.vx*rx_+G.vz*rz_;const sp=Math.abs(vf),mx=(G.inPit?22:on?62:20)*em*[.88,1,1.1][G.strat]*G.pw;
+ if(G.inPit&&G.v>24){G.pen+=dt*.8;toast('Boxengasse: Tempolimit 80 km/h!',600)}G.thr+=((gas?1:0)-G.thr)*Math.min(1,dt*4);
+ G.tw=Math.min(100,G.tw+dt*(.3+G.slip*.15+sp*.012+(on?0:1))*[1.6,1,.55,.5][G.tire]*(1+G.strat*.2));G.fuel=Math.max(0,G.fuel-dt*G.thr*(.2+sp*.005)*[1,1.35,.7][G.ft]);G.gripM=[1.15,1,.9,.8][G.tire]*(G.tw<60?1:Math.max(.55,1-(G.tw-60)/90));G.solar=Math.max(0,G.solar-dt);let mh=100;for(let i=0;i<11;i++){G.hp[i]=Math.max(0,G.hp[i]-dt*.45*(.5+Math.random())*(1+G.strat)/2);if(!(G.ev&&G.ev[7]==i))mh=Math.min(mh,G.hp[i])}G.pw=[1,1.07,.93][G.ft]*(G.fuel<=0?.3:1)*(1-.2*G.fuel/100)*(G.solar>0?1.05:1)*(mh<50?.88:1);
+ let a=gas?G.thr*15*em*G.pw*Math.max(0,1-Math.max(0,vf)/mx):0;
+ if(brk){if(vf>1)a-=28;else a-=12*Math.max(0,1+vf/14)}
+ if(hb&&vf>0)a-=14;
+ a-=vf*(on?.05:1.4)+vf*sp*.001;if(vf>mx)a-=(vf-mx)*2;
+ vf+=a*dt;
+ G.sa+=(st*es*Math.min(1,.62/(1+sp*.03))-G.sa)*Math.min(1,dt*(st?5:8));
+ let ws=G.sa+(G.ev&&G.ev[0].startsWith('Bord')?Math.sin(G.t*4)*.05:0);
+ G.h-=vf*Math.tan(ws)/2.6*dt*(hb?1.4:1);
+ const wx=fx*vf+rx_*vl,wz=fz*vf+rz_*vl,nfx=Math.sin(G.h),nfz=Math.cos(G.h),nrx=-Math.cos(G.h),nrz=Math.sin(G.h);
+ let vf2=wx*nfx+wz*nfz,vl2=wx*nrx+wz*nrz;
+ let dec=vl2*(1-Math.exp(-(on?9:3)*dt));const mxd=(on?17:7)*(hb?.45:1)*G.gripM*dt;if(Math.abs(dec)>mxd)dec=Math.sign(dec)*mxd;vl2-=dec;
+ G.vx=nfx*vf2+nrx*vl2;G.vz=nfz*vf2+nrz*vl2;G.v=vf2;G.slip=Math.abs(vl2);
+ G.x+=G.vx*dt;G.z+=G.vz*dt;
+ {const i=near(G.x,G.z,G.ci),d=(G.x-CX[i])*NX[i]+(G.z-CZ[i])*NZ[i],win=i>N-34||i<56,lim=(win&&d<0)?W+17:W+13;if(Math.abs(d)>lim){const e=d-Math.sign(d)*(lim-.3);G.x-=NX[i]*e;G.z-=NZ[i]*e;if(Math.abs(G.v)>6){shk=.5;G.pen+=1;bp(90,.3,'sawtooth',.2);toast('Bandenkontakt! +1 s Strafe',1200)}G.vx*=.4;G.vz*=.4;G.v*=.4}}
+ 
+ car.position.set(G.x,0,G.z);car.rotation.y=G.h;car.rotation.z=-G.sa*Math.min(1,sp/40)*.15;
+ let d=G.ci-G.ta;if(d>N/2)d-=N;if(d<-N/2)d+=N;G.prog+=d;G.ta=G.ci;
+ if(G.prog>N*(G.lap+1)+12){G.lap++;G.lapT.push(G.t);bp(1200,.3);if(G.lap>=LAPS){finish()}else toast('Runde '+G.lap+' geschafft! '+(G.ev?'Achtung: Störung aktiv.':''),2000)}
+ if(G.prog<-N&&!G.warned){G.warned=1;toast('Du fährst in die falsche Richtung!',2500)}
+ if(!on&&Math.abs(G.v)>20)toast('Neben der Strecke! Gras bremst.',800);
+ const gs=70/6,gr=Math.min(6,Math.floor(Math.abs(G.v)/gs)+1),rpm=(Math.abs(G.v)%gs)/gs;G.gear=G.v<-1?-1:gr;bl.material.color.set(brk?0xff2020:0x550000);
+ if(eg)eg.gain.value=.03+G.thr*.07;if(eo)eo.frequency.value=45+(G.v<-1?20:rpm*70+gr*6+G.thr*25);
+ if(G.slip>5&&on&&Math.abs(G.v)>8){bp(500+Math.random()*100,.08,'sawtooth',.03);skid()}
+ G.ch=G.ch==null?G.h:G.ch;G.ch+=(G.h-G.ch)*Math.min(1,dt*4);const sf=Math.min(1,Math.abs(G.v)/60);
+ const kk=G.mgr?2.6:1;tv.set(-Math.sin(G.ch)*(8+sf*3)*kk,(3.2+sf*1.2)*(G.mgr?3:1),-Math.cos(G.ch)*(8+sf*3)*kk).add(car.position);cam.position.lerp(tv,Math.min(1,dt*8));
+ cam.position.x+=(Math.random()-.5)*shk;cam.position.y+=(Math.random()-.5)*shk;shk=Math.max(0,shk-dt*2);
+ cam.lookAt(G.x+Math.sin(G.ch)*8,1.2,G.z+Math.cos(G.ch)*8);cam.fov=62+sf*22;cam.updateProjectionMatrix();
+ updAI(dt);dashU();if(G.mgr&&((G.t*2.5)|0)!=G.lk){G.lk=(G.t*2.5)|0;mgrTick()}hud();R.render(sc,cam)}
+init();open_=true;loop();
+dlg('<h2 style="margin:0">CELL RACER</h2><i>Die Pflanzenzelle als Rennwagen mit Team</i><br><br>Fahre 3 Runden. Wenn etwas ausfällt, fährst du in die Box und entscheidest als Teamchef, welches „Organell“ zuständig ist. So lernst du die Zelle über die Analogie Rennwagen + Boxencrew.',[['🎓 Einweisung starten (Autopilot)',tutStart],['▶ Menü öffnen',menu],['📖 Lernzentrum',()=>learn()],['Team ansehen',()=>dlg('<b>Dein Team = die Pflanzenzelle</b><br>'+table(),[['Zurück']])]]);
+</script></body></html>
